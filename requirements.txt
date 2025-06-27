@@ -1,0 +1,6 @@
+langchain-ollama
+langchain-chroma
+langchain
+pandas
+langgraph
+python-multipart
