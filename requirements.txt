@@ -1,6 +1,9 @@
 langchain-ollama
 langchain-chroma
+langchain-community
 langchain
 pandas
 langgraph
 python-multipart
+fastapi
+uvicorn

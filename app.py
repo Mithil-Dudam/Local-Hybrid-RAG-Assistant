@@ -14,6 +14,7 @@ from langchain.chains import create_retrieval_chain
 from uuid import uuid4
 import os, shutil, pandas as pd
 import time
+import json
 
 from fastapi import FastAPI, UploadFile, File, Form, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -105,7 +106,25 @@ async def upload_file(file: UploadFile = File(...)):
     file_location = os.path.join(data_folder, file.filename)
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
+    
+    for filename in os.listdir(data_folder):
+        path = os.path.join(data_folder, filename)
+        if filename.endswith(".csv"):
+            df = pd.read_csv(path)
+            columns = df.columns
+            return{"message": "File saved", "filename": file.filename, "filetype": file.content_type, "columns":list(columns)}
     return {"message": "File saved", "filename": file.filename, "filetype": file.content_type}
+
+parsed_columns = []
+parsed_page_content = []
+parsed_metadata = []
+
+@app.post("/set-columns",status_code=status.HTTP_200_OK)
+async def set_columns(columns:str=Form(...),page_content:str=Form(...)):
+    global parsed_columns,parsed_page_content,parsed_metadata
+    parsed_columns = json.loads(columns)
+    parsed_page_content = json.loads(page_content)
+    parsed_metadata = [col for col in parsed_columns if col not in parsed_page_content]
 
 @app.post("/create-vector-database", status_code=status.HTTP_201_CREATED)
 async def create_vector_database():
@@ -116,7 +135,7 @@ async def create_vector_database():
     collection_name="documents",
     embedding_function=embeddings,
     persist_directory="./db/chroma_langchain_db"
-)
+    )
 
     for filename in os.listdir(data_folder):
         path = os.path.join(data_folder, filename)
@@ -132,10 +151,21 @@ async def create_vector_database():
             df = pd.read_csv(path)
             documents = []
             ids = []
+
             for i, row in df.iterrows():
+                content_parts = []
+                metadata = {}
+
+                for column in parsed_page_content:
+                    content_parts.append(str(row[column]))
+                page_content = " ".join(content_parts).strip()
+
+                for column in parsed_metadata:
+                    metadata[column] = row[column]
+
                 document = Document(
-                page_content=row["Title"] + " " + row["Review"],
-                metadata={"rating": row["Rating"], "date": row["Date"]},
+                page_content=page_content,
+                metadata = metadata,
                 id=str(i)
             )
                 documents.append(document)

@@ -3,6 +3,8 @@ import { createContext, useContext, useState } from "react";
 interface AppContextType {
   error: string | null;
   setError: (error: string | null) => void;
+  columns: string[];
+  setColumns: (column: string[]) => void;
   query: string;
   setQuery: (query: string) => void;
   result: string;
@@ -17,6 +19,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [error, setError] = useState<string | null>(null);
+  const [columns, setColumns] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [result, setResult] = useState("");
   const [spinner, setSpinner] = useState<boolean>(false);
@@ -26,6 +29,8 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         query,
         setQuery,
+        columns,
+        setColumns,
         result,
         setResult,
         spinner,
