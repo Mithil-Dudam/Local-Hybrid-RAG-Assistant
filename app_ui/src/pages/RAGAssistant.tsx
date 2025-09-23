@@ -1,8 +1,31 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+
 import api from "../api";
 import { useAppContext } from "./AppContext";
 import { MoveLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+// MessageWithToggle: Show more/less for long responses, clear separation
+function MessageWithToggle({ message }: { message: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const limit = 400;
+  const isLong = message.length > limit;
+  const display = !isLong || expanded ? message : message.slice(0, limit) + "...";
+  return (
+    <div className="bg-gradient-to-br from-gray-900 via-black to-red-950 border-2 border-red-700 my-10 px-6 py-6 text-white text-lg rounded-xl shadow-lg max-w-full break-words animate-fade-in transition-all duration-300">
+      <div style={{ whiteSpace: 'pre-line' }}>{display}</div>
+      {isLong && (
+        <button
+          className="mt-4 px-4 py-1 bg-black/40 border border-red-700 text-red-300 rounded hover:bg-red-900 hover:text-white transition font-semibold"
+          onClick={() => setExpanded((e) => !e)}
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function RAGAssistant() {
   const {
@@ -123,10 +146,9 @@ function RAGAssistant() {
           </div>
         )}
         {result && (
-          <div className="bg-gradient-to-br from-gray-900 via-black to-red-950 border border-red-700 my-10 px-6 py-4 text-white text-lg rounded-xl shadow-lg max-w-full break-words animate-fade-in">
-            {result}
-          </div>
+          <MessageWithToggle message={result} />
         )}
+
       </div>
     </div>
   );

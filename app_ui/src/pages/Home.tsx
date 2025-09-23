@@ -4,16 +4,15 @@ import api from "../api";
 import { useNavigate } from "react-router-dom";
 
 function Home() {
-  const [file, setFile] = useState<File | null>(null);
-  const [fileName, setFileName] = useState("");
+  const [files, setFiles] = useState<(File | null)[]>([null]);
   const { error, columns, setColumns, spinner, setSpinner } = useAppContext();
   // Upload file to backend and handle columns for CSV
   const UploadFile = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
     setSpinner(true);
     try {
       const formData = new FormData();
-      formData.append("file", file);
+      files.filter((file): file is File => !!file).forEach((file) => formData.append("files", file));
       const response = await api.post("/upload-file", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
@@ -45,11 +44,10 @@ function Home() {
         );
       }
       await api.post("/create-vector-database");
-      setColumns([]);
-      setFile(null);
-      setFileName("");
-      setPageContent([]);
-      navigate("/rag");
+  setColumns([]);
+  setFiles([null]);
+  setPageContent([]);
+  navigate("/rag");
     } catch (err) {
       // Optionally handle error
     } finally {
@@ -68,10 +66,11 @@ function Home() {
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-      setFileName(e.target.files[0].name);
+      const newFiles = [...files];
+      newFiles[idx] = e.target.files[0];
+      setFiles(newFiles);
     }
   };
 
@@ -82,33 +81,60 @@ function Home() {
       </h1>
       <div className="bg-black/80 border border-red-900 rounded-2xl shadow-2xl p-10 w-full max-w-xl flex flex-col gap-6 animate-fade-in">
         <label className="block text-white text-lg font-semibold mb-2">Upload PDF or CSV</label>
-        <label className="relative block w-full">
-          <input
-            type="file"
-            accept=".pdf,.csv"
-            className="hidden"
-            onChange={handleImageChange}
-            disabled={spinner}
-          />
-          <div className="flex items-center">
-            <button
-              type="button"
-              className={`flex-1 bg-black/60 border border-red-900 rounded-lg px-3 py-2 text-white text-left focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-900 transition ${spinner ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-red-950'}`}
-              onClick={() => {
-                if (spinner) return;
-                const input = document.querySelector('input[type=file]') as HTMLInputElement | null;
-                input?.click();
-              }}
-              disabled={spinner}
-            >
-              {fileName ? fileName : "Click to select a file..."}
-            </button>
+        {files.map((file, idx) => (
+          <div key={idx} className="relative block w-full mb-2 flex items-center gap-2">
+            <label className="flex-1">
+              <input
+                type="file"
+                accept=".pdf,.csv"
+                className="hidden"
+                onChange={e => handleImageChange(e, idx)}
+                disabled={spinner}
+              />
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  className={`w-full bg-black/60 border border-red-900 rounded-lg px-3 py-2 text-white text-left focus:outline-none focus:border-red-600 focus:ring-2 focus:ring-red-900 transition ${spinner ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-red-950'}`}
+                  onClick={() => {
+                    if (spinner) return;
+                    const inputs = document.querySelectorAll('input[type=file]');
+                    (inputs[idx] as HTMLInputElement)?.click();
+                  }}
+                  disabled={spinner}
+                >
+                  {file ? file.name : "Click to select a file..."}
+                </button>
+              </div>
+            </label>
+            {files.length > 1 && (
+              <button
+                type="button"
+                className={`ml-2 px-2 py-1 text-red-400 hover:text-red-600 text-xl rounded focus:outline-none focus:ring-2 focus:ring-red-900 ${spinner ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                onClick={() => setFiles(files.filter((_, i) => i !== idx))}
+                disabled={spinner}
+                aria-label="Remove file"
+                title="Remove file"
+              >
+                🗑️
+              </button>
+            )}
           </div>
-        </label>
+        ))}
+        {/* Add another file button */}
+        {files.every(f => f) && (
+          <button
+            type="button"
+            className={`bg-gradient-to-r from-gray-700 to-gray-500 px-4 py-1 text-white rounded-lg shadow hover:from-gray-600 hover:to-gray-400 font-semibold transition mb-2 ${spinner ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+            onClick={() => setFiles([...files, null])}
+            disabled={spinner}
+          >
+            + Add another file
+          </button>
+        )}
         <button
-          className="bg-gradient-to-r from-red-700 to-red-500 px-5 py-2 text-lg text-white rounded-lg shadow hover:from-red-600 hover:to-red-400 font-bold transition"
+          className={`bg-gradient-to-r from-red-700 to-red-500 px-5 py-2 text-lg text-white rounded-lg shadow hover:from-red-600 hover:to-red-400 font-bold transition ${spinner ? 'cursor-not-allowed' : 'cursor-pointer'}`}
           onClick={UploadFile}
-          disabled={spinner || !file}
+          disabled={spinner || files.length === 0 || files.some(f => !f)}
           style={spinner ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
         >
           {spinner ? "Uploading..." : "Upload"}
@@ -128,7 +154,7 @@ function Home() {
               ))}
             </div>
             <button
-              className="mt-4 bg-gradient-to-r from-red-700 to-red-500 px-5 py-2 text-lg text-white rounded-lg shadow hover:from-red-600 hover:to-red-400 font-bold transition"
+              className={`mt-4 bg-gradient-to-r from-red-700 to-red-500 px-5 py-2 text-lg text-white rounded-lg shadow hover:from-red-600 hover:to-red-400 font-bold transition ${spinner ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               onClick={CreateVectorDatabase}
               disabled={spinner}
               style={spinner ? { opacity: 0.6, cursor: 'not-allowed' } : {}}

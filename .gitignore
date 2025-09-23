@@ -1,0 +1,22 @@
+# Ignore Python cache and virtual environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Ignore frontend build artifacts
+app_ui/node_modules/
+app_ui/dist/
+
+# Ignore data and database folders
+/data/
+/db/
+
+# Ignore all PDFs and CSVs anywhere in the repo
+*.pdf
+*.csv
+
+# Ignore environment and IDE files
+.env
+.DS_Store
+.vscode/

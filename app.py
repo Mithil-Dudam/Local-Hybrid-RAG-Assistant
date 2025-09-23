@@ -161,7 +161,7 @@ graph = graph_builder.compile()
 
 
 @app.post("/upload-file", status_code=status.HTTP_201_CREATED)
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(files: list[UploadFile] = File(...)):
     os.makedirs(data_folder, exist_ok=True)
     for filename in os.listdir(data_folder):
         file_path = os.path.join(data_folder, filename)
@@ -171,9 +171,10 @@ async def upload_file(file: UploadFile = File(...)):
     # if(os.path.exists( db_folder)):
     #     shutil.rmtree(db_folder)
 
-    file_location = os.path.join(data_folder, file.filename)
-    with open(file_location, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    for file in files:
+        file_location = os.path.join(data_folder, file.filename)
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
     for filename in os.listdir(data_folder):
         path = os.path.join(data_folder, filename)
@@ -187,9 +188,7 @@ async def upload_file(file: UploadFile = File(...)):
                 "columns": list(columns),
             }
     return {
-        "message": "File saved",
-        "filename": file.filename,
-        "filetype": file.content_type,
+        "message": "Files saved",
     }
 
 
@@ -227,7 +226,6 @@ async def create_vector_database():
             )
             documents = text_splitter.split_documents(docs)
             ids = [str(uuid4()) for _ in range(len(documents))]
-            all_documents = documents
 
             texts = [doc.page_content for doc in documents]
             vectorizer = TfidfVectorizer()
@@ -237,6 +235,7 @@ async def create_vector_database():
             vector_space.add_documents(
                 documents=documents, ids=ids, sparse_vectors=sparse_vectors
             )
+            all_documents.extend(documents)
             state["file_type"] = "pdf"
         elif filename.endswith(".csv"):
             df = pd.read_csv(path)
