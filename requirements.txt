@@ -7,3 +7,6 @@ langgraph
 python-multipart
 fastapi
 uvicorn
+scikit-learn
+pypdf
+rank_bm25
