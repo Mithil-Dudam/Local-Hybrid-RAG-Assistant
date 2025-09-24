@@ -176,17 +176,26 @@ async def upload_file(files: list[UploadFile] = File(...)):
         with open(file_location, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
+    uploaded_csvs = []
+
     for filename in os.listdir(data_folder):
         path = os.path.join(data_folder, filename)
         if filename.endswith(".csv"):
             df = pd.read_csv(path)
-            columns = df.columns
-            return {
-                "message": "File saved",
-                "filename": file.filename,
-                "filetype": file.content_type,
-                "columns": list(columns),
-            }
+            columns = df.columns.tolist()
+            uploaded_csvs.append(
+                {
+                    "filename": filename,
+                    "columns": columns,
+                }
+            )
+
+    if uploaded_csvs:
+        return {
+            "message": "Files saved",
+            "csv_files": uploaded_csvs,
+        }
+
     return {
         "message": "Files saved",
     }
@@ -196,18 +205,20 @@ parsed_columns = []
 parsed_page_content = []
 parsed_metadata = []
 
+# Store per-CSV column selection
+parsed_csv_column_map = {}
+
 
 @app.post("/set-columns", status_code=status.HTTP_200_OK)
-async def set_columns(columns: str = Form(...), page_content: str = Form(...)):
-    global parsed_columns, parsed_page_content, parsed_metadata
-    parsed_columns = json.loads(columns)
-    parsed_page_content = json.loads(page_content)
-    parsed_metadata = [col for col in parsed_columns if col not in parsed_page_content]
+async def set_columns(csv_column_map: str = Form(...)):
+    global parsed_csv_column_map
+    # csv_column_map: { filename: {"content": [...], "metadata": [...]}, ... }
+    parsed_csv_column_map = json.loads(csv_column_map)
 
 
 @app.post("/create-vector-database", status_code=status.HTTP_201_CREATED)
 async def create_vector_database():
-    global state, vector_space, all_documents
+    global state, vector_space, all_documents, parsed_csv_column_map
     all_documents = []
 
     vector_space = Chroma(
@@ -237,35 +248,31 @@ async def create_vector_database():
             )
             all_documents.extend(documents)
             state["file_type"] = "pdf"
+
         elif filename.endswith(".csv"):
             df = pd.read_csv(path)
             documents = []
             ids = []
-
+            # Use per-CSV column selection if available
+            colmap = parsed_csv_column_map.get(filename, {})
+            content_cols = colmap.get("content", list(df.columns))
+            metadata_cols = colmap.get(
+                "metadata", [col for col in df.columns if col not in content_cols]
+            )
             for i, row in df.iterrows():
-                content_parts = []
-                metadata = {}
-
-                for column in parsed_page_content:
-                    content_parts.append(str(row[column]))
+                content_parts = [str(row[col]) for col in content_cols]
                 page_content = " ".join(content_parts).strip()
-
-                for column in parsed_metadata:
-                    metadata[column] = row[column]
-
+                metadata = {col: row[col] for col in metadata_cols}
                 document = Document(
                     page_content=page_content, metadata=metadata, id=str(i)
                 )
                 documents.append(document)
                 ids.append(str(i))
-
             texts = [doc.page_content for doc in documents]
             vectorizer = TfidfVectorizer()
             sparse_matrix = vectorizer.fit_transform(texts)
             sparse_vectors = [vec.toarray().flatten().tolist() for vec in sparse_matrix]
-
-            all_documents = documents
-
+            all_documents.extend(documents)
             vector_space.add_documents(
                 documents=documents, ids=ids, sparse_vectors=sparse_vectors
             )

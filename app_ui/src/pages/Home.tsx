@@ -3,9 +3,18 @@ import { useAppContext } from "./AppContext";
 import api from "../api";
 import { useNavigate } from "react-router-dom";
 
+
 function Home() {
   const [files, setFiles] = useState<(File | null)[]>([null]);
-  const { error, columns, setColumns, spinner, setSpinner } = useAppContext();
+  const { error, spinner, setSpinner } = useAppContext();
+  const [csvFiles, setCsvFiles] = useState<{
+    [filename: string]: {
+      columns: string[];
+      content: string[];
+    };
+  }>({});
+  const navigate = useNavigate();
+
   // Upload file to backend and handle columns for CSV
   const UploadFile = async () => {
     if (files.length === 0) return;
@@ -16,10 +25,15 @@ function Home() {
       const response = await api.post("/upload-file", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      if (response.data.columns) {
-        setColumns(response.data.columns);
+      if (response.data.csv_files) {
+        // Initialize content selection as all columns for each CSV
+        const csvMap: any = {};
+        response.data.csv_files.forEach((csv: { filename: string; columns: string[] }) => {
+          csvMap[csv.filename] = { columns: csv.columns, content: [...csv.columns] };
+        });
+        setCsvFiles(csvMap);
       } else {
-        setColumns([]);
+        setCsvFiles({});
         // If PDF, immediately create vector DB
         await CreateVectorDatabase();
       }
@@ -30,41 +44,49 @@ function Home() {
     }
   };
 
+  // Toggle content column for a specific CSV
+  const toggleCsvContentColumn = (filename: string, column: string) => {
+    setCsvFiles(prev => {
+      const file = prev[filename];
+      if (!file) return prev;
+      const content = file.content.includes(column)
+        ? file.content.filter(c => c !== column)
+        : [...file.content, column];
+      return { ...prev, [filename]: { ...file, content } };
+    });
+  };
+
   // Send selected columns to backend and create vector DB for CSV
   const CreateVectorDatabase = async () => {
     setSpinner(true);
     try {
-      if (columns.length > 0) {
+      if (Object.keys(csvFiles).length > 0) {
+        // Build mapping: filename -> { content, metadata }
+        const csv_column_map: any = {};
+        Object.entries(csvFiles).forEach(([filename, { columns, content }]) => {
+          csv_column_map[filename] = {
+            content,
+            metadata: columns.filter(col => !content.includes(col)),
+          };
+        });
         await api.post(
           "/set-columns",
           new URLSearchParams({
-            columns: JSON.stringify(columns),
-            page_content: JSON.stringify(pageContent),
+            csv_column_map: JSON.stringify(csv_column_map),
           })
         );
       }
       await api.post("/create-vector-database");
-  setColumns([]);
-  setFiles([null]);
-  setPageContent([]);
-  navigate("/rag");
+      setCsvFiles({});
+      setFiles([null]);
+      navigate("/rag");
     } catch (err) {
       // Optionally handle error
     } finally {
       setSpinner(false);
     }
   };
-  const navigate = useNavigate();
 
-  const [pageContent, setPageContent] = useState<string[]>([]);
-
-  const ToggleColumn = (column: string) => {
-    if (pageContent.includes(column)) {
-      setPageContent(pageContent.filter((c) => c !== column));
-    } else {
-      setPageContent([...pageContent, column]);
-    }
-  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -139,20 +161,27 @@ function Home() {
         >
           {spinner ? "Uploading..." : "Upload"}
         </button>
-        {columns.length > 0 && (
+        {Object.keys(csvFiles).length > 0 && (
           <div className="mt-4">
-            <label className="block text-white text-lg font-semibold mb-2">Select columns for page content:</label>
-            <div className="flex flex-wrap gap-2">
-              {columns.map((col) => (
-                <button
-                  key={col}
-                  className={`px-3 py-1 rounded-full border-2 text-white font-semibold transition ${pageContent.includes(col) ? "bg-red-700 border-red-700" : "bg-black/60 border-red-900 hover:bg-red-900"}`}
-                  onClick={() => ToggleColumn(col)}
-                >
-                  {col}
-                </button>
-              ))}
-            </div>
+            <label className="block text-white text-lg font-semibold mb-2">Select columns for each CSV (content columns will be embedded, others as metadata):</label>
+            {Object.entries(csvFiles).map(([filename, { columns, content }]) => (
+              <div key={filename} className="mb-6 p-4 rounded-lg border border-red-700 bg-black/60">
+                <div className="text-red-300 font-bold mb-2">{filename}</div>
+                <div className="flex flex-wrap gap-2">
+                  {columns.map((col) => (
+                    <button
+                      key={col}
+                      className={`px-3 py-1 rounded-full border-2 text-white font-semibold transition ${content.includes(col) ? "bg-red-700 border-red-700" : "bg-black/60 border-red-900 hover:bg-red-900"}`}
+                      onClick={() => toggleCsvContentColumn(filename, col)}
+                    >
+                      {col}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-gray-400 mt-2">Content columns: <span className="font-mono">{content.join(", ")}</span></div>
+                <div className="text-xs text-gray-400">Metadata columns: <span className="font-mono">{columns.filter(col => !content.includes(col)).join(", ") || "(none)"}</span></div>
+              </div>
+            ))}
             <button
               className={`mt-4 bg-gradient-to-r from-red-700 to-red-500 px-5 py-2 text-lg text-white rounded-lg shadow hover:from-red-600 hover:to-red-400 font-bold transition ${spinner ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               onClick={CreateVectorDatabase}
