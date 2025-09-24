@@ -15,7 +15,6 @@ function Home() {
   }>({});
   const navigate = useNavigate();
 
-  // Upload file to backend and handle columns for CSV
   const UploadFile = async () => {
     if (files.length === 0) return;
     setSpinner(true);
@@ -38,13 +37,11 @@ function Home() {
         await CreateVectorDatabase();
       }
     } catch (err) {
-      // Optionally handle error
     } finally {
       setSpinner(false);
     }
   };
 
-  // Toggle content column for a specific CSV
   const toggleCsvContentColumn = (filename: string, column: string) => {
     setCsvFiles(prev => {
       const file = prev[filename];
@@ -56,7 +53,6 @@ function Home() {
     });
   };
 
-  // Send selected columns to backend and create vector DB for CSV
   const CreateVectorDatabase = async () => {
     setSpinner(true);
     try {
@@ -81,7 +77,6 @@ function Home() {
       setFiles([null]);
       navigate("/rag");
     } catch (err) {
-      // Optionally handle error
     } finally {
       setSpinner(false);
     }
@@ -142,7 +137,6 @@ function Home() {
             )}
           </div>
         ))}
-        {/* Add another file button */}
         {files.every(f => f) && (
           <button
             type="button"
