@@ -6,7 +6,6 @@ import { useAppContext } from "./AppContext";
 import { MoveLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-// MessageWithToggle: Show more/less for long responses, clear separation
 function MessageWithToggle({ message }: { message: string }) {
   const [expanded, setExpanded] = useState(false);
   const limit = 400;
