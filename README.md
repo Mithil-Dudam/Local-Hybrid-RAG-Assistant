@@ -13,6 +13,34 @@ A local, privacy-preserving AI assistant that answers questions from your own PD
 - **Modern UI:** Clean, responsive React + Tailwind CSS interface for multi-file upload, per-CSV column selection, and chat.
 - **Smart Routing:** Automatically detects file type and routes queries to the correct pipeline.
 - **Data Privacy:** All processing is local—no data ever leaves your computer.
+- **Containerized Deployment:** Uses Docker Compose to orchestrate frontend, backend, and Ollama containers for easy setup and reproducibility.
+
+---
+
+## Architecture
+
+- **Frontend:**
+
+  - React + TypeScript, built with Vite, styled with Tailwind CSS.
+  - Served by Nginx in a Docker container.
+  - Provides UI for uploading files, selecting CSV columns, and chatting with the assistant.
+
+- **Backend:**
+
+  - Python (FastAPI), containerized.
+  - Handles API requests, document ingestion, embedding, and retrieval.
+  - Uses Chroma DB for vector storage and similarity search.
+  - Integrates with LangChain and LangGraph for RAG pipeline.
+
+- **Ollama Container:**
+
+  - Runs LLMs locally (llama 3.2, mxbai-embed-large).
+  - Exposes an API for inference, ensuring all data stays on-prem.
+
+- **Data Storage:**
+  - Embeddings and metadata are stored temporarily in memory or ephemeral storage during each session.
+  - The vector database is reset on every backend restart; data is not persistent.
+  - Uploaded files are processed locally and never leave your machine.
 
 ---
 
@@ -44,10 +72,33 @@ A local, privacy-preserving AI assistant that answers questions from your own PD
 
 - Python 3.10+
 - Node.js 18+
+- Docker & Docker Compose
 - Ollama (for local LLM)
 - (Optional) CUDA for GPU acceleration
 
-### Backend Setup
+### Quick Start (Docker Compose)
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/Mithil-Dudam/Local-Hybrid-RAG-Assistant.git
+   cd Local-Hybrid-RAG-Assistant
+   ```
+
+2. **Start all services:**
+
+   ```bash
+   docker compose up --build
+   ```
+
+3. **Access the app:**
+   - Frontend: [http://localhost:5173](http://localhost:5173)
+   - Backend API: [http://localhost:8000/docs](http://localhost:8000/docs) (FastAPI docs)
+   - Ollama: [http://localhost:11434](http://localhost:11434) (Ollama API)
+
+### Manual Setup (Development)
+
+#### Backend
 
 ```bash
 # Install Python dependencies
@@ -57,7 +108,7 @@ pip install -r requirements.txt
 uvicorn app:app --reload
 ```
 
-### Frontend Setup
+#### Frontend
 
 ```bash
 cd app_ui
@@ -71,7 +122,7 @@ npm run dev
 2. Upload one or more PDF and/or CSV files.
 3. For each CSV, select columns for retrieval and metadata.
 4. Click "Create Vector Database" to ingest all files.
-5. Ask questions in the chat interface. The system will search across all uploaded files using hybrid retrieval.
+5. Ask questions in the chat interface. The system will search across all uploaded files using hybrid retrieval and generate answers using the local LLM.
 
 ---
 
@@ -92,9 +143,12 @@ npm run dev
 
 ## Troubleshooting / FAQ
 
-- **Ollama not running?** Make sure you have started Ollama (`ollama serve`) before launching the backend.
-- **Port conflicts?** Default ports are 8000 (backend) and 5173 (frontend). Change them in `app.py` or `vite.config.ts` if needed.
-- **GPU Acceleration?** Install CUDA and the appropriate Ollama model for GPU support.
+- **Port conflicts?**  
+   Default ports are 8000 (backend), 5173 (frontend), and 11434 (Ollama). Change them in `app.py`, `vite.config.ts`, or `docker-compose.yml` if needed.
+- **GPU Acceleration?**  
+   Install CUDA and the appropriate Ollama model for GPU support.
+- **Model download stalls?**  
+   Check your internet connection or try pulling the model again.
 
 ---
 
@@ -102,10 +156,11 @@ npm run dev
 
 - **Backend:** FastAPI, LangChain, LangGraph, Chroma, BM25, TfidfVectorizer, PyPDFLoader, pandas, Ollama
 - **Frontend:** React, TypeScript, Tailwind CSS, Axios, React Router
+- **LLM Inference:** Ollama (llama3.2, mxbai-embed-large)
+- **Containerization:** Docker, Docker Compose
 
 ---
 
 ## License
 
 MIT
-

@@ -47,13 +47,12 @@ class State(TypedDict):
 
 state = {"messages": [], "file_type": None, "next": None}
 
-llm = ChatOllama(model="llama3.2", temperature=0)
-embeddings = OllamaEmbeddings(model="mxbai-embed-large")
+llm = ChatOllama(model="llama3.2", temperature=0, base_url="http://ollama:11434")
+embeddings = OllamaEmbeddings(model="mxbai-embed-large", base_url="http://ollama:11434")
 
 vector_space = Chroma(
     collection_name="documents",
     embedding_function=embeddings,
-    persist_directory="./db/chroma_langchain_db",
 )
 
 all_documents = []
@@ -224,7 +223,6 @@ async def create_vector_database():
     vector_space = Chroma(
         collection_name="documents",
         embedding_function=embeddings,
-        persist_directory="./db/chroma_langchain_db",
     )
 
     for filename in os.listdir(data_folder):
